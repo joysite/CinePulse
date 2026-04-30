@@ -1,0 +1,6 @@
+streamlit 
+openai 
+zhipuai 
+requests 
+moviepy
+pyyaml

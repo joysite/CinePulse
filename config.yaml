@@ -1,0 +1,12 @@
+# CinePulse 影脉系统全局配置文件
+api_keys:
+  deepseek: "sk-5626645dff7d423b9d69ed638aafc0eb"
+  zhipu_ai: "0c88cfc6313f4f26ae7a243c08773786.IvBedJUdcniJ68HH"
+  # 智谱TTS使用相同的API Key
+  zhipu_tts: "0c88cfc6313f4f26ae7a243c08773786.IvBedJUdcniJ68HH"
+
+# 默认审美偏好设置
+aesthetic:
+  style_bias: "Cinematic lighting, 8k resolution, masterpieces, shallow depth of field, detailed textures"
+  frame_rate: 24
+  font_path: "assets/SimHei.ttf"
