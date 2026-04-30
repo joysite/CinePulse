@@ -1,9 +1,9 @@
 # CinePulse 影脉系统全局配置文件
 api_keys:
-  deepseek: ""
-  zhipu_ai: ""
+  deepseek: "YOUR_KEY"
+  zhipu_ai: "YOUR_KEY"
   # 智谱TTS使用相同的API Key
-  zhipu_tts: ""
+  zhipu_tts: "YOUR_KEY"
 
 # 默认审美偏好设置
 aesthetic:
