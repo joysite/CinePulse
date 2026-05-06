@@ -1,49 +1,66 @@
 import requests
-import base64
 
 class VoiceAgent:
     def __init__(self, api_key):
         self.api_key = api_key
+        # API 服务器地址
+        self.url = "https://open.bigmodel.cn/api/paas/v4/audio/speech"
 
-    def generate_audio(self, text, save_path):
-        """智谱 GLM-TTS 音频合成"""
-        url = "https://open.bigmodel.cn/api/paas/v4/audio/speech"
-        headers = {"Authorization": f"Bearer {self.api_key}"}
+    def generate_audio(self, text, save_path, voice="tongtong", speed=1.0, volume=1.0):
+        """
+        使用智谱 GLM-TTS 将文本转换为语音
+        
+        :param text: 要转换的文本内容 (最大 1024 字符)
+        :param save_path: 音频保存路径
+        :param voice: 音色选择 (tongtong, chuichui, xiaochen, jam, kazi, douji, luodo)
+        :param speed: 语速 [0.5, 2]
+        :param volume: 音量 (0, 10]
+        """
+        
+        # 长度校验
+        if len(text) > 1024:
+            print(f"Voice Error: Input text too long ({len(text)} > 1024)")
+            return None
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+
+        # 构造请求参数
         payload = {
             "model": "glm-tts",
             "input": text,
-            "voice": "longxiaochun",  # 可选: alloy, echo, fable, onyx, nova, shimmer
-            "response_format": "wav"
+            "voice": voice,
+            "speed": speed,
+            "volume": volume,
+            "response_format": "wav"  # 业务处理成功，采样率建议设置为 24000
         }
-        
-        
+
         try:
-            print(f"Voice API Request: URL={url}, text_length={len(text)}")
-            resp = requests.post(url, headers=headers, json=payload, timeout=30)
+            print(f"Voice API Request: URL={self.url}, text_length={len(text)}")
+            # 使用 POST 方法请求
+            resp = requests.post(self.url, headers=headers, json=payload, timeout=30)
             
-            print(f"Voice API Response: status={resp.status_code}, content_length={len(resp.content)}")
-            
+            # 处理 200 成功的响应
             if resp.status_code == 200:
-                # 检查响应内容是否为空
                 if not resp.content:
                     print("Voice Error: Empty response content")
                     return None
                 
-                # 检查是否为有效的音频数据
-                if len(resp.content) < 100:  # 音频文件应该大于100字节
-                    print(f"Voice Error: Response too small, possibly error message: {resp.content[:200]}")
-                    return None
-                
+                # 直接保存二进制流数据
                 with open(save_path, "wb") as f:
                     f.write(resp.content)
                 print(f"Voice Success: Audio saved to {save_path}, size={len(resp.content)} bytes")
                 return save_path
+            
             else:
-                # 尝试解析错误响应
+                # 处理请求失败，解析 Error Schema
                 try:
                     error_data = resp.json()
-                    print(f"Voice API Error: HTTP {resp.status_code}, Error: {error_data}")
-                except:
+                    err_info = error_data.get("error", {})
+                    print(f"Voice API Error: Code={err_info.get('code')}, Message={err_info.get('message')}")
+                except Exception:
                     print(f"Voice API Error: HTTP {resp.status_code}, Response: {resp.text[:500]}")
                 return None
                 
