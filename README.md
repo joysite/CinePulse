@@ -65,7 +65,7 @@ aesthetic:
 
 ### **5.3 运行**
 
-执行 streamlit run app.py 即可进入导演控制台。
+执行 streamlit run app.py --server.headless=true --server.address=0.0.0.0 --server.port=8501 即可进入导演控制台。
 
 ## **6\. 后续迭代方向**
 
