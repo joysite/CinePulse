@@ -7,8 +7,7 @@ from datetime import datetime
 from database import WorkspaceDB
 from agents.writer import WriterAgent
 from agents.artist import ArtistAgent
-from agents.voice import VoiceAgent
-from utils.visual_engine import VisualEngine
+from agents.voice import VoiceAgent  # 确保已导入语音 Agent[cite: 6]
 from utils.video_composer import VideoComposer
 
 # --- 0. 日志系统配置 ---
@@ -36,7 +35,8 @@ def init_system_resources():
         db = WorkspaceDB()
         writer = WriterAgent(config['api_keys']['deepseek'])
         artist = ArtistAgent(config['api_keys']['zhipu_ai'], config['aesthetic']['style_bias'])
-        voice = None  # 语音 Agent 暂不启用
+        # 核心：正式启用语音 Agent[cite: 5, 6]
+        voice = VoiceAgent(config['api_keys']['zhipu_ai']) 
         composer = VideoComposer(config['aesthetic']['font_path'])
         
         return config, db, writer, artist, voice, composer
@@ -77,24 +77,21 @@ with st.sidebar:
         if not completed_scenes:
             st.error("当前没有已渲染完成的分镜片段。")
         else:
-            with st.spinner("正在物理咬合所有影脉片段并渲染字幕..."):
+            with st.spinner("正在物理咬合所有影脉片段并渲染字幕与音频..."):
                 try:
                     all_clips = []
                     for s in completed_scenes:
-                        # 核心调用：合成视频、音频与字幕
+                        # 现在 s[4] 将包含真实的音频路径
                         clip = composer.create_clip(s[3], s[4], s[1])
                         if clip: all_clips.append(clip)
                     
                     if all_clips:
-                        # 确保产出保存到 output 文件夹
                         save_path = os.path.join("output", output_filename)
                         final_path = composer.save_movie(all_clips, save_path)
                         
-                        st.success("🎥 成片渲染成功！")
-                        # 前端预览
+                        st.success("🎥 成片渲染成功（音画同步）！")
                         st.video(final_path)
                         
-                        # 提供下载选项[cite: 2]
                         with open(final_path, "rb") as f:
                             st.download_button(
                                 label="💾 下载成片",
@@ -133,6 +130,7 @@ with col_script:
             st.markdown("<div class='pulse-card'>", unsafe_allow_html=True)
             st.write(f"**分镜 {scene_id}**")
             
+            # 允许手动微调旁白内容再渲染[cite: 5]
             edited_narration = st.text_area(f"旁白", value=narration, key=f"n_{scene_id}")
             
             if st.button(f"🎬 锁定并渲染", key=f"btn_{scene_id}"):
@@ -140,19 +138,22 @@ with col_script:
                     try:
                         ts = int(time.time())
                         img_file = f"workspace/img_{scene_id}_{ts}.png"
+                        aud_file = f"workspace/aud_{scene_id}_{ts}.wav" # 音频文件名[cite: 6]
                         
-                        # 1. 生成图片
+                        # 1. 审美纠偏生图[cite: 7]
                         img_result = artist.generate_image(v_desc, img_file)
-                        img_exists = img_result and os.path.exists(img_result)
                         
-                        # 2. 检查图片有效性
-                        if img_exists and os.path.getsize(img_result) > 1000:
-                            # 3. 更新数据库：设置为 COMPLETED 状态，无音频模式传入空字符串[cite: 1]
-                            db.update_scene_assets(scene_id, img_file, "", "COMPLETED")
-                            st.toast(f"分镜 {scene_id} 渲染完成")
+                        # 2. 调用 GLM-TTS 生成旁白音频[cite: 6]
+                        aud_result = voice.generate_audio(edited_narration, aud_file)
+                        
+                        # 3. 检查素材有效性
+                        if img_result and aud_result:
+                            # 更新数据库：保存图片和音频的真实路径[cite: 5]
+                            db.update_scene_assets(scene_id, img_file, aud_file, "COMPLETED")
+                            st.toast(f"分镜 {scene_id} 音画素材渲染完成")
                         else:
                             db.update_scene_assets(scene_id, status="FAILED")
-                            st.error(f"分镜 {scene_id} 图像生成失败")
+                            st.error(f"分镜 {scene_id} 素材生成不完整（图片或音频失败）")
                         st.rerun()
                     except Exception as e:
                         st.error(f"渲染失败: {e}")
@@ -166,10 +167,13 @@ with col_monitor:
         for s in scenes:
             scene_id, _, _, img_p, aud_p, status = s
             with st.expander(f"分镜 {scene_id}: {status}", expanded=(status == "COMPLETED")):
-                if status == "COMPLETED" and img_p and os.path.exists(img_p):
-                    st.image(img_p)
+                if status == "COMPLETED":
+                    if img_p and os.path.exists(img_p):
+                        st.image(img_p)
+                    if aud_p and os.path.exists(aud_p):
+                        st.audio(aud_p) # 在监视器中预览音频[cite: 5]
                 elif status == "FAILED":
-                    st.error("生成失败")
+                    st.error("渲染失败")
 
 # 实时日志显示
 try:
